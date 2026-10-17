@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AppPetCare_Grupo1"
+rootProject.name = "AppTeqRuta_Grupo1"
 include(":app")

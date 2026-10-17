@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.petcare"
+    namespace = "com.example.teqruta"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.petcare"
+        applicationId = "com.example.teqruta"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -45,5 +45,6 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material3.window.size)
     implementation(libs.androidx.navigation.compose)
+    testImplementation(libs.junit)
     debugImplementation(libs.androidx.ui.tooling)
 }
