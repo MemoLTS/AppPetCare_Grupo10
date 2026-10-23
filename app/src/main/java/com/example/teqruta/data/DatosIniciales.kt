@@ -2,7 +2,6 @@ package com.example.teqruta.data
 
 import com.example.teqruta.model.HashContrasena
 import com.example.teqruta.model.Rol
-import com.example.teqruta.model.TarifaCombustible
 import com.example.teqruta.model.TipoUbicacion
 import com.example.teqruta.model.TipoVehiculo
 import com.example.teqruta.model.Tramo
@@ -10,7 +9,7 @@ import com.example.teqruta.model.Ubicacion
 import com.example.teqruta.model.Usuario
 import com.example.teqruta.model.Vehiculo
 
-// Datos de ejemplo para poder probar la app. Distancias, peajes, precio del combustible y
+// Datos de ejemplo para poder probar la app. Distancias, peajes, costo por km de los vehículos y
 // nombres de clientes son ilustrativos: el administrador debe reemplazarlos por los reales.
 object DatosIniciales {
 
@@ -18,28 +17,28 @@ object DatosIniciales {
         usuario(1, "Administrador TeqMed", "admin@teqmed.cl", "Admin123", Rol.ADMINISTRADOR),
         usuario(2, "Jefa Servicio Uno", "jefe1@teqmed.cl", "Jefe1234", Rol.JEFE_SERVICIO),
         usuario(3, "Jefe Servicio Dos", "jefe2@teqmed.cl", "Jefe1234", Rol.JEFE_SERVICIO),
-        usuario(4, "Tecnico Uno", "tecnico1@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 2, vehiculoId = 1),
-        usuario(5, "Tecnico Dos", "tecnico2@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 2, vehiculoId = 2),
-        usuario(6, "Tecnico Tres", "tecnico3@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 3, vehiculoId = 3),
+        usuario(4, "Tecnico Uno", "tecnico1@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 2),
+        usuario(5, "Tecnico Dos", "tecnico2@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 2),
+        usuario(6, "Tecnico Tres", "tecnico3@teqmed.cl", "Tecnico123", Rol.TECNICO, jefeId = 3),
         usuario(7, "Gerencia Finanzas", "gerencia@teqmed.cl", "Gerencia123", Rol.GERENCIA_FINANZAS)
     )
 
     private fun usuario(
         id: Int, nombre: String, correo: String, clave: String, rol: Rol,
-        jefeId: Int? = null, vehiculoId: Int? = null
+        jefeId: Int? = null
     ): Usuario {
         val salt = HashContrasena.generarSalt()
         return Usuario(
             id = id, nombre = nombre, correo = correo, rol = rol, activo = true,
             salt = salt, hashClave = HashContrasena.hash(clave, salt),
-            jefeId = jefeId, vehiculoId = vehiculoId
+            jefeId = jefeId
         )
     }
 
     fun vehiculos(): List<Vehiculo> = listOf(
-        Vehiculo(1, "BCDF12", "Camioneta de servicio", TipoVehiculo.EMPRESA, 10.5),
-        Vehiculo(2, "GHJK34", "Auto del técnico", TipoVehiculo.PARTICULAR, 14.0),
-        Vehiculo(3, "LPRS56", "Furgón de servicio", TipoVehiculo.EMPRESA, 9.0)
+        Vehiculo(1, "BCDF12", "Camioneta de servicio", TipoVehiculo.EMPRESA, 150.0),
+        Vehiculo(2, "GHJK34", "Auto del técnico", TipoVehiculo.PARTICULAR, 110.0),
+        Vehiculo(3, "LPRS56", "Furgón de servicio", TipoVehiculo.EMPRESA, 170.0)
     )
 
     fun ubicaciones(): List<Ubicacion> = listOf(
@@ -57,15 +56,5 @@ object DatosIniciales {
         Tramo(4, origenId = 1, destinoId = 5, distanciaKm = 285.0, peajeClp = 9_000),
         Tramo(5, origenId = 2, destinoId = 3, distanciaKm = 118.0, peajeClp = 3_200),
         Tramo(6, origenId = 3, destinoId = 4, distanciaKm = 100.0, peajeClp = 2_500)
-    )
-
-    fun tarifas(): List<TarifaCombustible> = listOf(
-        TarifaCombustible(
-            id = 1,
-            precioLitroClp = 1_300,
-            vigenteDesdeMs = 0L,
-            fuente = "Valor inicial de ejemplo (pendiente conexión a la fuente pública)",
-            registradaPorId = null
-        )
     )
 }

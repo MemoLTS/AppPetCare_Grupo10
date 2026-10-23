@@ -19,8 +19,8 @@ class PoliticaAccesoTest {
     private val todos = listOf(admin, jefeA, jefeB, tecnicoA, tecnicoB, gerencia)
 
     private fun traslado(id: Int, tecnico: Usuario, estado: EstadoTraslado) = Traslado(
-        id = id, tecnicoId = tecnico.id, vehiculoId = 1, origenId = 1, destinoId = 2,
-        inicioMs = 0, kmInicial = 100, estado = estado
+        id = id, tecnicoId = tecnico.id, patente = "BCDF12", origenId = 1, destinoId = 2,
+        inicioMs = 0, estado = estado
     )
 
     private val deA = traslado(1, tecnicoA, EstadoTraslado.PENDIENTE_VALIDACION)

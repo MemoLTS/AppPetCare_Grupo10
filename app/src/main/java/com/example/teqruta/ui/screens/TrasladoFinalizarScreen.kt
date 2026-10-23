@@ -29,7 +29,8 @@ import com.example.teqruta.ui.utils.Formato
 import com.example.teqruta.viewmodel.DatosTraslados
 import com.example.teqruta.viewmodel.TrasladoViewModel
 
-// Cierre del traslado en curso: el técnico declara el kilometraje final del odómetro.
+// Cierre del traslado en curso: el técnico declara los kilómetros recorridos (con decimales) y,
+// si quiere, el gasto del vehículo en pesos (opcional).
 // El costo lo calcula el sistema con datos oficiales; el técnico no lo ve ni lo ingresa.
 @Composable
 fun TrasladoFinalizarScreen(
@@ -51,9 +52,7 @@ fun TrasladoFinalizarScreen(
 
     val origen = datos.ubicacionesPorId[enCurso.origenId]?.nombre ?: "Origen"
     val destino = datos.ubicacionesPorId[enCurso.destinoId]?.nombre ?: "Destino"
-    val vehiculo = datos.vehiculosPorId[enCurso.vehiculoId]
-    val kmFinal = estado.kmFinal.trim().toIntOrNull()
-    val declarados = kmFinal?.let { it - enCurso.kmInicial }
+    val vehiculo = datos.vehiculosPorPatente[enCurso.patente]
 
     Column(
         modifier = modifier
@@ -74,26 +73,36 @@ fun TrasladoFinalizarScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("$origen → $destino", style = MaterialTheme.typography.titleMedium)
                 Text("Inicio: ${Formato.fechaHora(enCurso.inicioMs)}", style = MaterialTheme.typography.bodyMedium)
-                if (vehiculo != null) {
-                    Text("Vehículo: ${vehiculo.patente}", style = MaterialTheme.typography.bodyMedium)
-                }
-                Text("Kilometraje inicial: ${enCurso.kmInicial} km", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Vehículo: ${enCurso.patente}" + (vehiculo?.let { " · ${it.descripcion}" } ?: ""),
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
 
         CampoFormulario(
-            valor = estado.kmFinal,
-            onValorChange = viewModel::onKmFinalChange,
-            etiqueta = "Kilometraje final (odómetro)",
+            valor = estado.distanciaKm,
+            onValorChange = viewModel::onDistanciaChange,
+            etiqueta = "Kilómetros recorridos (ej: 12,5)",
             iconoInicial = Icons.Default.Info,
-            error = estado.error,
+            error = estado.errores["distancia"],
+            tipoTeclado = KeyboardType.Decimal
+        )
+
+        CampoFormulario(
+            valor = estado.gastoClp,
+            onValorChange = viewModel::onGastoChange,
+            etiqueta = "Gasto del vehículo en pesos (opcional)",
+            iconoInicial = Icons.Default.Info,
+            error = estado.errores["gasto"],
             tipoTeclado = KeyboardType.Number
         )
 
-        if (declarados != null && declarados > 0) {
+        if (estado.errores["general"] != null) {
             Text(
-                text = "Distancia declarada: $declarados km",
+                text = estado.errores["general"]!!,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.fillMaxWidth()
             )
         }

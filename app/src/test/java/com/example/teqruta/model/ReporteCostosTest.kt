@@ -9,19 +9,19 @@ class ReporteCostosTest {
     private val clinicaA = Ubicacion(2, "Clínica A", "Concepción", "Dir 2", TipoUbicacion.CLIENTE)
     private val clinicaB = Ubicacion(3, "Clínica B", "Chillán", "Dir 3", TipoUbicacion.CLIENTE)
     private val ubicaciones = listOf(sede, clinicaA, clinicaB)
-    private val tecnico = Usuario(4, "Tecnico", "t@x.cl", Rol.TECNICO, true, "", "", jefeId = 9, vehiculoId = 1)
-    private val vehiculo = Vehiculo(1, "BCDF12", "Camioneta", TipoVehiculo.EMPRESA, 10.0)
+    private val tecnico = Usuario(4, "Tecnico", "t@x.cl", Rol.TECNICO, true, "", "", jefeId = 9)
+    private val vehiculo = Vehiculo(1, "BCDF12", "Camioneta", TipoVehiculo.EMPRESA, 100.0)
 
     private fun calculo(costo: Int, desviacion: Boolean = false) = CalculoCosto(
-        tarifaId = 1, precioLitroClp = 1000, distanciaOficialKm = 100.0, distanciaDeclaradaKm = 100,
-        rendimientoKmPorLitro = 10.0, litros = 10.0, costoCombustibleClp = costo, peajeClp = 0,
-        costoTotalClp = costo, desviacionPct = 0.0, hayDesviacion = desviacion, calculadoMs = 0
+        distanciaOficialKm = 100.0, distanciaDeclaradaKm = 100.0, costoPorKmClp = 100.0,
+        costoDistanciaClp = costo, peajeClp = 0, costoTotalClp = costo,
+        desviacionPct = 0.0, hayDesviacion = desviacion, calculadoMs = 0
     )
 
     private fun traslado(id: Int, origen: Int, destino: Int, estado: EstadoTraslado, costo: Int, desv: Boolean = false) =
         Traslado(
-            id = id, tecnicoId = 4, vehiculoId = 1, origenId = origen, destinoId = destino,
-            inicioMs = 0, kmInicial = 0, kmFinal = 100, estado = estado, calculo = calculo(costo, desv)
+            id = id, tecnicoId = 4, patente = "BCDF12", origenId = origen, destinoId = destino,
+            inicioMs = 0, distanciaKm = 100.0, estado = estado, calculo = calculo(costo, desv)
         )
 
     @Test

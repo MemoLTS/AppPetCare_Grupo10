@@ -3,15 +3,15 @@ package com.example.teqruta.model
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// Único lugar donde se calcula el costo de un traslado. El técnico solo declara el odómetro;
-// el monto sale de datos oficiales (tramo, tarifa y rendimiento del vehículo), por lo que no
-// depende de estimaciones manuales. Es una función pura: mismas entradas, mismo resultado.
+// Único lugar donde se calcula el costo de un traslado. El técnico solo declara los kilómetros
+// recorridos (con decimales); el monto sale de datos oficiales (distancia del tramo y costo por
+// km del vehículo), por lo que no depende de estimaciones manuales. Es una función pura.
 //
-// Fórmula: combustible = (distancia oficial / rendimiento) * precio por litro
-//          costo total = combustible + peajes del tramo
+// Fórmula: costo por distancia = distancia oficial del tramo * costo por km del vehículo
+//          costo total = costo por distancia + peajes del tramo
+//          desviación = (km declarados - distancia oficial) / distancia oficial
 //
-// Cuando exista un servidor, esta lógica debe ejecutarse allá para que el cálculo quede
-// realmente centralizado; la app solo enviará los datos declarados.
+// El gasto del vehículo que el técnico declara (opcional) se guarda aparte y no altera este monto.
 object CalculadoraCostos {
 
     // Diferencia máxima tolerada entre la distancia declarada y la oficial (10 %)
@@ -19,24 +19,19 @@ object CalculadoraCostos {
 
     fun calcular(
         tramo: Tramo,
-        tarifa: TarifaCombustible,
         vehiculo: Vehiculo,
-        kmDeclarados: Int,
+        distanciaDeclaradaKm: Double,
         ahoraMs: Long
     ): CalculoCosto {
-        val litros = tramo.distanciaKm / vehiculo.rendimientoKmPorLitro
-        val combustible = (litros * tarifa.precioLitroClp).roundToInt()
-        val desviacion = (kmDeclarados - tramo.distanciaKm) / tramo.distanciaKm
+        val costoDistancia = (tramo.distanciaKm * vehiculo.costoPorKmClp).roundToInt()
+        val desviacion = (distanciaDeclaradaKm - tramo.distanciaKm) / tramo.distanciaKm
         return CalculoCosto(
-            tarifaId = tarifa.id,
-            precioLitroClp = tarifa.precioLitroClp,
             distanciaOficialKm = tramo.distanciaKm,
-            distanciaDeclaradaKm = kmDeclarados,
-            rendimientoKmPorLitro = vehiculo.rendimientoKmPorLitro,
-            litros = litros,
-            costoCombustibleClp = combustible,
+            distanciaDeclaradaKm = distanciaDeclaradaKm,
+            costoPorKmClp = vehiculo.costoPorKmClp,
+            costoDistanciaClp = costoDistancia,
             peajeClp = tramo.peajeClp,
-            costoTotalClp = combustible + tramo.peajeClp,
+            costoTotalClp = costoDistancia + tramo.peajeClp,
             desviacionPct = desviacion * 100,
             hayDesviacion = abs(desviacion) > TOLERANCIA_DESVIACION,
             calculadoMs = ahoraMs

@@ -10,7 +10,6 @@ import com.example.teqruta.model.PoliticaAcceso
 import com.example.teqruta.model.Rol
 import com.example.teqruta.model.Usuario
 import com.example.teqruta.model.UsuarioFormState
-import com.example.teqruta.model.Vehiculo
 import com.example.teqruta.model.ValidadorUsuario
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,7 +26,6 @@ class UsuarioViewModel(
 ) : ViewModel() {
 
     val usuarios: StateFlow<List<Usuario>> = repo.usuarios
-    val vehiculos: StateFlow<List<Vehiculo>> = repo.vehiculos
 
     // ---------- Sesión ----------
 
@@ -106,8 +104,7 @@ class UsuarioViewModel(
             correo = u.correo,
             rol = u.rol,
             activo = u.activo,
-            jefeId = u.jefeId,
-            vehiculoId = u.vehiculoId
+            jefeId = u.jefeId
         )
         return true
     }
@@ -122,10 +119,9 @@ class UsuarioViewModel(
     fun onClaveChange(valor: String) = cambiar("clave") { it.copy(clave = valor) }
     fun onRolChange(valor: Rol) = cambiar("rol") { it.copy(rol = valor) }
     fun onJefeChange(id: Int) = cambiar("jefe") { it.copy(jefeId = id) }
-    fun onVehiculoChange(id: Int) = cambiar("vehiculo") { it.copy(vehiculoId = id) }
     fun onActivoChange(valor: Boolean) = cambiar("rol") { it.copy(activo = valor) }
 
-    // Valida todos los campos (incluye correo repetido y coherencia de jefe y vehículo).
+    // Valida todos los campos (incluye correo repetido y coherencia del jefe).
     fun validarFormulario(): Boolean {
         val f = _form.value
         val lista = repo.usuarios.value
@@ -144,16 +140,12 @@ class UsuarioViewModel(
             ValidadorUsuario.validarRol(f.rol)?.let { put("rol", it) }
 
             if (f.rol == Rol.TECNICO) {
-                // Un técnico necesita jefe (quien valida sus traslados) y vehículo asignado.
+                // Un técnico necesita jefe (quien valida sus traslados).
                 val jefe = lista.firstOrNull { it.id == f.jefeId }
                 if (jefe == null || jefe.rol != Rol.JEFE_SERVICIO ||
                     (!jefe.activo && jefe.id != existente?.jefeId)
                 ) {
                     put("jefe", "Selecciona el jefe de servicio del técnico")
-                }
-                val vehiculo = repo.vehiculos.value.firstOrNull { it.id == f.vehiculoId }
-                if (vehiculo == null || (!vehiculo.activo && vehiculo.id != existente?.vehiculoId)) {
-                    put("vehiculo", "Asigna un vehículo activo al técnico")
                 }
             }
 
@@ -187,8 +179,7 @@ class UsuarioViewModel(
                     activo = true,
                     salt = salt,
                     hashClave = HashContrasena.hash(f.clave, salt),
-                    jefeId = if (esTecnico) f.jefeId else null,
-                    vehiculoId = if (esTecnico) f.vehiculoId else null
+                    jefeId = if (esTecnico) f.jefeId else null
                 )
             )
         } else {
@@ -211,8 +202,7 @@ class UsuarioViewModel(
                     activo = if (esUnoMismo) true else f.activo,
                     salt = salt,
                     hashClave = hash,
-                    jefeId = if (tecnicoFinal) f.jefeId else null,
-                    vehiculoId = if (tecnicoFinal) f.vehiculoId else null
+                    jefeId = if (tecnicoFinal) f.jefeId else null
                 )
             )
         }

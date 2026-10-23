@@ -33,7 +33,7 @@ import com.example.teqruta.ui.components.SelectorRol
 import com.example.teqruta.viewmodel.UsuarioViewModel
 
 // Formulario para crear o editar un usuario (nombre, correo, contraseña, rol y estado).
-// Si el rol es técnico, además se elige su jefe de servicio y su vehículo asignado.
+// Si el rol es técnico, además se elige su jefe de servicio.
 @Composable
 fun UsuarioFormScreen(
     viewModel: UsuarioViewModel,
@@ -43,14 +43,12 @@ fun UsuarioFormScreen(
 ) {
     val estado by viewModel.form.collectAsState()
     val usuarios by viewModel.usuarios.collectAsState()
-    val vehiculos by viewModel.vehiculos.collectAsState()
     val editando = estado.editandoId != null
     // Nadie puede quitarse a sí mismo el rol ni desactivarse (evita quedarse sin acceso)
     val esUnoMismo = estado.editandoId == actor.id
 
-    // Solo se ofrecen jefes y vehículos activos (más el que el técnico ya tenga asignado)
+    // Solo se ofrecen jefes activos (más el que el técnico ya tenga asignado)
     val jefes = usuarios.filter { it.rol == Rol.JEFE_SERVICIO && (it.activo || it.id == estado.jefeId) }
-    val vehiculosDisponibles = vehiculos.filter { it.activo || it.id == estado.vehiculoId }
 
     Column(
         modifier = modifier
@@ -117,14 +115,6 @@ fun UsuarioFormScreen(
                 textoDe = { it.nombre },
                 onSeleccion = { viewModel.onJefeChange(it.id) },
                 error = estado.errores["jefe"]
-            )
-            SelectorDesplegable(
-                etiqueta = "Vehículo asignado",
-                opciones = vehiculosDisponibles,
-                seleccionada = vehiculosDisponibles.firstOrNull { it.id == estado.vehiculoId },
-                textoDe = { "${it.patente} · ${it.descripcion}" },
-                onSeleccion = { viewModel.onVehiculoChange(it.id) },
-                error = estado.errores["vehiculo"]
             )
         }
 

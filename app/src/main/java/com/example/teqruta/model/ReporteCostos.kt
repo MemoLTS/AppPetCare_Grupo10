@@ -6,7 +6,9 @@ data class FilaResumen(
     val traslados: Int,
     val kmOficiales: Double,
     val costoTotalClp: Int,
-    val conDesviacion: Int
+    val conDesviacion: Int,
+    // Suma del gasto del vehículo que declararon los técnicos (opcional, informativo)
+    val gastoDeclaradoClp: Int = 0
 )
 
 enum class DimensionReporte(val etiqueta: String) {
@@ -36,7 +38,7 @@ object ReporteCostos {
         ubicaciones: List<Ubicacion>
     ): List<FilaResumen> {
         val usuariosPorId = usuarios.associateBy { it.id }
-        val vehiculosPorId = vehiculos.associateBy { it.id }
+        val vehiculosPorPatente = vehiculos.associateBy { it.patente }
         val ubicacionesPorId = ubicaciones.associateBy { it.id }
 
         return traslados
@@ -46,7 +48,7 @@ object ReporteCostos {
                     DimensionReporte.CLIENTE ->
                         clienteDe(t, ubicacionesPorId)?.nombre ?: "Sin cliente (traslado interno)"
                     DimensionReporte.TECNICO -> usuariosPorId[t.tecnicoId]?.nombre ?: "Usuario desconocido"
-                    DimensionReporte.VEHICULO -> vehiculosPorId[t.vehiculoId]?.patente ?: "Vehículo desconocido"
+                    DimensionReporte.VEHICULO -> vehiculosPorPatente[t.patente]?.patente ?: t.patente
                 }
             }
             .map { (etiqueta, lista) ->
@@ -55,7 +57,8 @@ object ReporteCostos {
                     traslados = lista.size,
                     kmOficiales = lista.sumOf { it.calculo!!.distanciaOficialKm },
                     costoTotalClp = lista.sumOf { it.calculo!!.costoTotalClp },
-                    conDesviacion = lista.count { it.hayDesviacion }
+                    conDesviacion = lista.count { it.hayDesviacion },
+                    gastoDeclaradoClp = lista.sumOf { it.gastoVehiculoClp ?: 0 }
                 )
             }
             .sortedByDescending { it.costoTotalClp }

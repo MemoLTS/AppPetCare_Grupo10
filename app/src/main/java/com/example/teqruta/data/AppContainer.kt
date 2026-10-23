@@ -1,8 +1,16 @@
 package com.example.teqruta.data
 
-// Contenedor sencillo de dependencias: una única instancia del repositorio para toda la app.
-// Los ViewModels lo reciben como parámetro con este valor por defecto, así pueden crearse
-// sin argumentos en la app y con un repositorio de prueba en los tests.
+import android.content.Context
+
+// Contenedor sencillo de dependencias: una única base de datos y un único repositorio para toda
+// la app. TeqRutaApp llama a iniciar() al arrancar. Los ViewModels reciben el repositorio como
+// parámetro con este valor por defecto, así pueden probarse con otro repositorio.
 object AppContainer {
-    val repositorio: RepositorioDatos by lazy { RepositorioDatos() }
+    private lateinit var baseDatos: BaseDatos
+
+    val repositorio: RepositorioDatos by lazy { RepositorioDatos(baseDatos) }
+
+    fun iniciar(context: Context) {
+        if (!::baseDatos.isInitialized) baseDatos = BaseDatos(context)
+    }
 }

@@ -4,8 +4,6 @@ import androidx.lifecycle.ViewModel
 import com.example.teqruta.data.AppContainer
 import com.example.teqruta.data.RepositorioDatos
 import com.example.teqruta.model.PoliticaAcceso
-import com.example.teqruta.model.TarifaCombustible
-import com.example.teqruta.model.TarifaForm
 import com.example.teqruta.model.Tramo
 import com.example.teqruta.model.TramoForm
 import com.example.teqruta.model.Ubicacion
@@ -19,7 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-// ViewModel del administrador: mantiene vehículos, ubicaciones, tramos y tarifa de combustible.
+// ViewModel del administrador: mantiene vehículos, ubicaciones y tramos.
 // Cada formulario se abre en un diálogo: su estado es null mientras está cerrado.
 // Todas las operaciones verifican el permiso GESTIONAR_CATALOGOS.
 class CatalogoViewModel(
@@ -30,7 +28,6 @@ class CatalogoViewModel(
     val vehiculos: StateFlow<List<Vehiculo>> = repo.vehiculos
     val ubicaciones: StateFlow<List<Ubicacion>> = repo.ubicaciones
     val tramos: StateFlow<List<Tramo>> = repo.tramos
-    val tarifas: StateFlow<List<TarifaCombustible>> = repo.tarifas
     val usuarios: StateFlow<List<Usuario>> = repo.usuarios
 
     // ---------- Vehículos ----------
@@ -47,8 +44,13 @@ class CatalogoViewModel(
         val v = repo.vehiculos.value.firstOrNull { it.id == id } ?: return
         _vehiculoForm.value = VehiculoForm(
             id = v.id, patente = v.patente, descripcion = v.descripcion, tipo = v.tipo,
-            rendimiento = v.rendimientoKmPorLitro.toString(), activo = v.activo
+            costoPorKm = v.costoPorKmClp.toString(), activo = v.activo
         )
+    }
+
+    // La patente se convierte a mayúsculas (y se limpia de espacios y guiones) al escribirla.
+    fun onPatenteVehiculoChange(valor: String) {
+        cambiarVehiculo("patente") { it.copy(patente = ValidadorCatalogo.patenteDeEntrada(valor)) }
     }
 
     fun cambiarVehiculo(campo: String, cambio: (VehiculoForm) -> VehiculoForm) {
@@ -69,12 +71,15 @@ class CatalogoViewModel(
             ) {
                 put("patente", "Ya existe un vehículo con esta patente")
             }
-            ValidadorCatalogo.validarDescripcion(f.descripcion)?.let { put("descripcion", it) }
-            ValidadorCatalogo.validarRendimiento(f.rendimiento)?.let { put("rendimiento", it) }
-            // No se desactiva un vehículo que usan técnicos activos: dejarían de poder registrar traslados.
-            if (!f.activo && repo.usuarios.value.any { it.activo && it.vehiculoId == f.id && f.id != 0 }) {
-                put("activo", "Está asignado a técnicos activos; reasígnalos antes de desactivarlo")
+            // Los traslados referencian al vehículo por su patente: no se cambia si ya tiene traslados
+            val anterior = repo.vehiculos.value.firstOrNull { it.id == f.id }
+            if (!containsKey("patente") && anterior != null && anterior.patente != patente &&
+                repo.traslados.value.any { it.patente == anterior.patente }
+            ) {
+                put("patente", "No se puede cambiar la patente: el vehículo ya tiene traslados registrados")
             }
+            ValidadorCatalogo.validarDescripcion(f.descripcion)?.let { put("descripcion", it) }
+            ValidadorCatalogo.validarCostoPorKm(f.costoPorKm)?.let { put("costoPorKm", it) }
         }
         if (errores.isNotEmpty()) {
             _vehiculoForm.update { it?.copy(errores = errores) }
@@ -86,7 +91,7 @@ class CatalogoViewModel(
                 patente = patente,
                 descripcion = f.descripcion.trim(),
                 tipo = f.tipo,
-                rendimientoKmPorLitro = ValidadorCatalogo.parsearDecimal(f.rendimiento)!!,
+                costoPorKmClp = ValidadorCatalogo.parsearDecimal(f.costoPorKm)!!,
                 activo = f.activo
             )
         )
@@ -206,46 +211,10 @@ class CatalogoViewModel(
         return true
     }
 
-    // ---------- Tarifa de combustible ----------
-
-    private val _tarifaForm = MutableStateFlow<TarifaForm?>(null)
-    val tarifaForm: StateFlow<TarifaForm?> = _tarifaForm.asStateFlow()
-
-    fun nuevaTarifa(actor: Usuario) {
-        if (PoliticaAcceso.puedeGestionarCatalogos(actor)) _tarifaForm.value = TarifaForm()
-    }
-
-    fun onPrecioLitroChange(valor: String) {
-        _tarifaForm.update { it?.copy(precioLitro = valor, error = null) }
-    }
-
-    fun cerrarTarifa() { _tarifaForm.value = null }
-
-    // Registra una nueva tarifa vigente. Mientras no exista la conexión a la fuente pública de
-    // precios, el valor lo ingresa el administrador y así queda indicado como fuente.
-    fun guardarTarifa(actor: Usuario): Boolean {
-        if (!PoliticaAcceso.puedeGestionarCatalogos(actor)) return false
-        val f = _tarifaForm.value ?: return false
-        val error = ValidadorCatalogo.validarPrecioLitro(f.precioLitro)
-        if (error != null) {
-            _tarifaForm.update { it?.copy(error = error) }
-            return false
-        }
-        repo.registrarTarifa(
-            precioLitroClp = f.precioLitro.trim().toInt(),
-            fuente = "Ingreso manual del administrador",
-            usuarioId = actor.id,
-            ahoraMs = reloj()
-        )
-        _tarifaForm.value = null
-        return true
-    }
-
     // Deja todos los formularios cerrados (por ejemplo al cerrar sesión)
     fun cerrarTodo() {
         _vehiculoForm.value = null
         _ubicacionForm.value = null
         _tramoForm.value = null
-        _tarifaForm.value = null
     }
 }

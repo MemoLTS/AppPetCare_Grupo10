@@ -1,34 +1,33 @@
 # TeqRuta – Traslados en terreno (TEQMED SpA)
 
 Aplicación móvil Android (Kotlin + Jetpack Compose, arquitectura MVVM) para registrar los traslados
-del personal técnico de TEQMED, calcular su costo con tarifas oficiales y entregar información
+del personal técnico de TEQMED, calcular su costo por kilómetro y entregar información
 verificable del gasto de movilización por cliente, técnico y vehículo.
 Caso: DSY1105 – Desarrollo de Aplicaciones Móviles (CITT Concepción).
 
-> Estado: **Parte 1** (interfaz, navegación, formularios con validación, roles y lógica de negocio con
-> datos en memoria). Lo que falta respecto del caso (trabajo sin conexión, fuente pública de combustible,
-> servidor) está en `docs/ANALISIS_CASO.md`.
+> Estado: **Parte 1** (interfaz, navegación, formularios con validación, roles y lógica de negocio) con
+> **base de datos SQL local (SQLite)**. Lo que falta respecto del caso (trabajo sin conexión, servidor) está en `docs/ANALISIS_CASO.md`.
 
 ## Qué hace cada perfil
 
 | Perfil | Qué puede hacer |
 |---|---|
-| **Técnico de servicio** | Inicia y finaliza sus traslados (origen, destino, odómetro). Ve solo los suyos y el motivo si se rechaza alguno. No ve costos. |
+| **Técnico de servicio** | Registra la orden con la patente del vehículo, origen y destino, y al finalizar declara los km recorridos (con decimales) y, si quiere, el gasto del vehículo en pesos (opcional). Ve solo los suyos y el motivo si se rechaza alguno. No ve costos. |
 | **Jefe de servicio técnico** | Ve los traslados de su equipo, los valida o rechaza (con motivo) y revisa las desviaciones. Ve el costo de cada traslado. |
 | **Gerencia / Finanzas** | Solo lectura: ve todos los traslados y el costo real por cliente, técnico y vehículo. |
-| **Administrador** | Mantiene vehículos, ubicaciones (sede y clientes), tramos (distancia y peaje), tarifa de combustible y usuarios. |
+| **Administrador** | Mantiene vehículos, ubicaciones (sede y clientes), tramos (distancia y peaje) y usuarios. Los vehículos se registran aparte (patente, descripción, tipo y costo por km). |
 
 ## Cómo se calcula el costo
-El técnico solo declara el odómetro; el monto sale de datos oficiales y se calcula en un único lugar
+El técnico solo declara los kilómetros recorridos; el monto sale de datos oficiales y se calcula en un único lugar
 (`CalculadoraCostos`):
 
 ```
-combustible = (distancia oficial del tramo / rendimiento del vehículo) × precio por litro vigente
-costo total = combustible + peajes del tramo
+costo por distancia = distancia oficial del tramo × costo por km del vehículo
+costo total = costo por distancia + peajes del tramo
 desviación  = (km declarados − distancia oficial) / distancia oficial     → se marca si supera ±10 %
 ```
-Cada traslado guarda una copia de los datos usados (tarifa, distancia, rendimiento, peaje, resultado), de modo que
-el cálculo se puede reconstruir aunque después cambien las tarifas. Solo los traslados **validados** por el jefe
+Cada traslado guarda una copia de los datos usados (distancia, costo por km, peaje, resultado), de modo que
+el cálculo se puede reconstruir aunque después cambie el costo por km. El gasto del vehículo declarado es informativo: se muestra en traslados y reportes, pero no altera el monto. Solo los traslados **validados** por el jefe
 entran a los reportes.
 
 ## Flujo de un traslado
@@ -46,16 +45,21 @@ Los catálogos (vehículos, ubicaciones, tramos) tampoco se borran: se desactiva
 | tecnico1@teqmed.cl · tecnico2@teqmed.cl · tecnico3@teqmed.cl | Tecnico123 | Técnico |
 | gerencia@teqmed.cl | Gerencia123 | Gerencia / Finanzas |
 
-Las ubicaciones, distancias, peajes, tarifa de combustible y vehículos precargados son **datos de ejemplo**:
-el administrador debe reemplazarlos por los reales. Mientras no haya persistencia, todo lo que se cree se pierde
-al cerrar la app.
+Las ubicaciones, distancias, peajes y vehículos precargados son **datos de ejemplo**:
+el administrador debe reemplazarlos por los reales. Los datos se guardan en la base SQLite del dispositivo
+(se crea y se carga con los datos de ejemplo la primera vez que se abre la app).
+
+## Patentes y vehículos
+- La patente se convierte a **mayúsculas al escribirla** (también se quitan espacios y guiones, máx. 6 caracteres).
+- El vehículo se registra aparte (administrador) y la orden de traslado se asocia a él **por la patente**.
+  Si la patente no existe o el vehículo está desactivado, la orden no se registra.
 
 ## Estructura
 ```
 app/src/main/java/com/example/teqruta/
 ├── MainActivity.kt
-├── data/         RepositorioDatos (fuente única de datos), DatosIniciales, AppContainer
-├── model/        Usuario, Rol/Permiso, PoliticaAcceso, Catalogos (Vehiculo, Ubicacion, Tramo, TarifaCombustible),
+├── data/         RepositorioDatos (fuente única de datos), BaseDatos (SQLite), DatosIniciales, AppContainer
+├── model/        Usuario, Rol/Permiso, PoliticaAcceso, Catalogos (Vehiculo, Ubicacion, Tramo),
 │                 Traslado, CalculadoraCostos, ReporteCostos, validadores, formularios, HashContrasena
 ├── viewmodel/    MainViewModel (navegación), UsuarioViewModel (sesión y usuarios),
 │                 TrasladoViewModel (registro y validación), CatalogoViewModel (administración)

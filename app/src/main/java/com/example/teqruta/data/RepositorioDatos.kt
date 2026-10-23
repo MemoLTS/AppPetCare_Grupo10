@@ -2,7 +2,6 @@ package com.example.teqruta.data
 
 import com.example.teqruta.model.CalculadoraCostos
 import com.example.teqruta.model.EstadoTraslado
-import com.example.teqruta.model.TarifaCombustible
 import com.example.teqruta.model.Tramo
 import com.example.teqruta.model.Traslado
 import com.example.teqruta.model.Ubicacion
@@ -14,42 +13,39 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 // Única fuente de datos de la app, compartida por todos los ViewModels.
-// Aquí solo se guardan y consultan datos: los permisos y las validaciones de formularios
-// viven en PoliticaAcceso y en los ViewModels. El cálculo de costos pasa siempre por
-// finalizarTraslado, de modo que existe un único punto donde se calcula un monto.
-//
-// Hoy los datos viven en memoria. Este es el punto donde se conectará la base de datos local
-// (para trabajar sin conexión) y la sincronización con el servidor.
-class RepositorioDatos {
+// Los datos viven en la base SQL local (BaseDatos): cada escritura se guarda ahí y luego se
+// refleja en los flujos que observan las pantallas. Aquí solo se guardan y consultan datos:
+// los permisos y validaciones viven en PoliticaAcceso y en los ViewModels. El cálculo de costos
+// pasa siempre por finalizarTraslado, de modo que existe un único punto donde se calcula un monto.
+class RepositorioDatos(private val bd: BaseDatos) {
 
-    private val _usuarios = MutableStateFlow(DatosIniciales.usuarios())
-    private val _vehiculos = MutableStateFlow(DatosIniciales.vehiculos())
-    private val _ubicaciones = MutableStateFlow(DatosIniciales.ubicaciones())
-    private val _tramos = MutableStateFlow(DatosIniciales.tramos())
-    private val _tarifas = MutableStateFlow(DatosIniciales.tarifas())
-    private val _traslados = MutableStateFlow<List<Traslado>>(emptyList())
+    private val _usuarios = MutableStateFlow(bd.leerUsuarios())
+    private val _vehiculos = MutableStateFlow(bd.leerVehiculos())
+    private val _ubicaciones = MutableStateFlow(bd.leerUbicaciones())
+    private val _tramos = MutableStateFlow(bd.leerTramos())
+    private val _traslados = MutableStateFlow(bd.leerTraslados())
 
     val usuarios: StateFlow<List<Usuario>> = _usuarios.asStateFlow()
     val vehiculos: StateFlow<List<Vehiculo>> = _vehiculos.asStateFlow()
     val ubicaciones: StateFlow<List<Ubicacion>> = _ubicaciones.asStateFlow()
     val tramos: StateFlow<List<Tramo>> = _tramos.asStateFlow()
-    val tarifas: StateFlow<List<TarifaCombustible>> = _tarifas.asStateFlow()
     val traslados: StateFlow<List<Traslado>> = _traslados.asStateFlow()
 
     // Guarda un registro: si su id es 0 le asigna el siguiente id; si no, reemplaza el existente.
+    // Primero escribe en la base de datos y, si resulta bien, actualiza la lista en memoria.
     private fun <T> MutableStateFlow<List<T>>.guardar(
         item: T,
         idDe: (T) -> Int,
-        conId: (T, Int) -> T
+        conId: (T, Int) -> T,
+        enBd: (T) -> Unit
     ): T {
-        var guardado = item
+        val guardado = if (idDe(item) == 0) conId(item, (value.maxOfOrNull(idDe) ?: 0) + 1) else item
+        enBd(guardado)
         update { lista ->
-            if (idDe(item) == 0) {
-                guardado = conId(item, (lista.maxOfOrNull(idDe) ?: 0) + 1)
-                lista + guardado
+            if (lista.any { idDe(it) == idDe(guardado) }) {
+                lista.map { if (idDe(it) == idDe(guardado)) guardado else it }
             } else {
-                guardado = item
-                lista.map { if (idDe(it) == idDe(item)) item else it }
+                lista + guardado
             }
         }
         return guardado
@@ -57,32 +53,27 @@ class RepositorioDatos {
 
     // ---------- Catálogos ----------
 
-    fun guardarUsuario(u: Usuario): Usuario = _usuarios.guardar(u, { it.id }) { x, id -> x.copy(id = id) }
-    fun guardarVehiculo(v: Vehiculo): Vehiculo = _vehiculos.guardar(v, { it.id }) { x, id -> x.copy(id = id) }
-    fun guardarUbicacion(u: Ubicacion): Ubicacion = _ubicaciones.guardar(u, { it.id }) { x, id -> x.copy(id = id) }
-    fun guardarTramo(t: Tramo): Tramo = _tramos.guardar(t, { it.id }) { x, id -> x.copy(id = id) }
+    fun guardarUsuario(u: Usuario): Usuario =
+        _usuarios.guardar(u, { it.id }, { x, id -> x.copy(id = id) }, bd::guardarUsuario)
 
-    // Registra una nueva tarifa vigente; las anteriores quedan como historial.
-    fun registrarTarifa(precioLitroClp: Int, fuente: String, usuarioId: Int?, ahoraMs: Long): TarifaCombustible =
-        _tarifas.guardar(
-            TarifaCombustible(0, precioLitroClp, ahoraMs, fuente, usuarioId),
-            { it.id }
-        ) { x, id -> x.copy(id = id) }
+    fun guardarVehiculo(v: Vehiculo): Vehiculo =
+        _vehiculos.guardar(v, { it.id }, { x, id -> x.copy(id = id) }, bd::guardarVehiculo)
 
-    fun tarifaVigente(): TarifaCombustible? =
-        _tarifas.value.maxWithOrNull(compareBy({ it.vigenteDesdeMs }, { it.id }))
+    fun guardarUbicacion(u: Ubicacion): Ubicacion =
+        _ubicaciones.guardar(u, { it.id }, { x, id -> x.copy(id = id) }, bd::guardarUbicacion)
+
+    fun guardarTramo(t: Tramo): Tramo =
+        _tramos.guardar(t, { it.id }, { x, id -> x.copy(id = id) }, bd::guardarTramo)
+
+    // Un vehículo se identifica por su patente (única), siempre en mayúsculas.
+    fun vehiculoPorPatente(patente: String): Vehiculo? =
+        _vehiculos.value.firstOrNull { it.patente == patente.uppercase() }
 
     // Tramo oficial entre dos ubicaciones, en cualquier sentido.
     fun tramoEntre(a: Int, b: Int, soloActivos: Boolean = true): Tramo? =
         _tramos.value.firstOrNull { it.conecta(a, b) && (!soloActivos || it.activo) }
 
     // ---------- Traslados ----------
-
-    // Último kilometraje conocido del vehículo (el odómetro no retrocede). Se ignoran los rechazados.
-    fun ultimoKmDeVehiculo(vehiculoId: Int): Int? =
-        _traslados.value
-            .filter { it.vehiculoId == vehiculoId && it.estado != EstadoTraslado.RECHAZADO }
-            .maxOfOrNull { it.kmFinal ?: it.kmInicial }
 
     fun trasladoEnCurso(tecnicoId: Int): Traslado? =
         _traslados.value.firstOrNull { it.tecnicoId == tecnicoId && it.estado == EstadoTraslado.EN_CURSO }
@@ -93,44 +84,43 @@ class RepositorioDatos {
             .filter { it.tecnicoId == tecnicoId && it.estado != EstadoTraslado.RECHAZADO }
             .maxByOrNull { it.inicioMs }?.destinoId
 
+    // Última patente que usó un técnico: sirve para proponerla en la orden siguiente.
+    fun ultimaPatenteDe(tecnicoId: Int): String? =
+        _traslados.value
+            .filter { it.tecnicoId == tecnicoId }
+            .maxByOrNull { it.inicioMs }?.patente
+
+    // Registra la orden asociada al vehículo por su patente.
     fun iniciarTraslado(
         tecnicoId: Int,
-        vehiculoId: Int,
+        patente: String,
         origenId: Int,
         destinoId: Int,
-        kmInicial: Int,
         ahoraMs: Long
     ): Traslado = _traslados.guardar(
         Traslado(
-            id = 0, tecnicoId = tecnicoId, vehiculoId = vehiculoId,
-            origenId = origenId, destinoId = destinoId,
-            inicioMs = ahoraMs, kmInicial = kmInicial
+            id = 0, tecnicoId = tecnicoId, patente = patente.uppercase(),
+            origenId = origenId, destinoId = destinoId, inicioMs = ahoraMs
         ),
-        { it.id }
-    ) { x, id -> x.copy(id = id) }
+        { it.id }, { x, id -> x.copy(id = id) }, bd::guardarTraslado
+    )
 
-    // Cierra el traslado, calcula su costo con la tarifa vigente y lo deja pendiente de validación.
-    // Retorna null si faltan datos oficiales para calcular (tramo, tarifa o vehículo).
-    fun finalizarTraslado(id: Int, kmFinal: Int, ahoraMs: Long): Traslado? {
+    // Cierra el traslado con los km declarados (y el gasto opcional), calcula su costo y lo deja
+    // pendiente de validación. Retorna null si faltan datos oficiales (tramo o vehículo).
+    fun finalizarTraslado(id: Int, distanciaKm: Double, gastoVehiculoClp: Int?, ahoraMs: Long): Traslado? {
         val traslado = _traslados.value.firstOrNull { it.id == id } ?: return null
         val tramo = tramoEntre(traslado.origenId, traslado.destinoId, soloActivos = false) ?: return null
-        val tarifa = tarifaVigente() ?: return null
-        val vehiculo = _vehiculos.value.firstOrNull { it.id == traslado.vehiculoId } ?: return null
+        val vehiculo = vehiculoPorPatente(traslado.patente) ?: return null
 
-        val calculo = CalculadoraCostos.calcular(
-            tramo = tramo,
-            tarifa = tarifa,
-            vehiculo = vehiculo,
-            kmDeclarados = kmFinal - traslado.kmInicial,
-            ahoraMs = ahoraMs
-        )
+        val calculo = CalculadoraCostos.calcular(tramo, vehiculo, distanciaKm, ahoraMs)
         val finalizado = traslado.copy(
             finMs = ahoraMs,
-            kmFinal = kmFinal,
+            distanciaKm = distanciaKm,
+            gastoVehiculoClp = gastoVehiculoClp,
             estado = EstadoTraslado.PENDIENTE_VALIDACION,
             calculo = calculo
         )
-        return _traslados.guardar(finalizado, { it.id }) { x, _ -> x }
+        return _traslados.guardar(finalizado, { it.id }, { x, _ -> x }, bd::guardarTraslado)
     }
 
     fun resolverTraslado(id: Int, validado: Boolean, jefeId: Int, motivo: String?, ahoraMs: Long): Traslado? {
@@ -141,6 +131,6 @@ class RepositorioDatos {
             resueltoMs = ahoraMs,
             motivoRechazo = motivo
         )
-        return _traslados.guardar(resuelto, { it.id }) { x, _ -> x }
+        return _traslados.guardar(resuelto, { it.id }, { x, _ -> x }, bd::guardarTraslado)
     }
 }

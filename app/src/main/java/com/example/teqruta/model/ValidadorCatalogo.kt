@@ -9,6 +9,10 @@ object ValidadorCatalogo {
     fun normalizarPatente(valor: String): String =
         valor.uppercase().filter { it.isLetterOrDigit() }
 
+    // Lo que se guarda mientras el usuario escribe: siempre en mayúsculas, sin espacios ni
+    // guiones, y con un máximo de 6 caracteres (largo de las patentes de autos y camionetas).
+    fun patenteDeEntrada(valor: String): String = normalizarPatente(valor).take(6)
+
     fun validarPatente(valor: String): String? = when {
         valor.isBlank() -> "La patente es obligatoria"
         !REGEX_PATENTE.matches(normalizarPatente(valor)) -> "Formato inválido (ej: ABCD12 o AB1234)"
@@ -24,9 +28,9 @@ object ValidadorCatalogo {
     // Acepta coma o punto decimal. Retorna null si no es un número válido.
     fun parsearDecimal(valor: String): Double? = valor.trim().replace(',', '.').toDoubleOrNull()
 
-    fun validarRendimiento(valor: String): String? {
-        val n = parsearDecimal(valor) ?: return "Ingresa un número (ej: 11,5)"
-        return if (n < 3.0 || n > 40.0) "Debe estar entre 3 y 40 km por litro" else null
+    fun validarCostoPorKm(valor: String): String? {
+        val n = parsearDecimal(valor) ?: return "Ingresa un número (ej: 125,5)"
+        return if (n <= 0.0 || n > 10_000.0) "Debe ser mayor a 0 y hasta $10.000 por km" else null
     }
 
     fun validarNombreUbicacion(valor: String): String? = when {
@@ -52,10 +56,5 @@ object ValidadorCatalogo {
     fun validarPeaje(valor: String): String? {
         val n = valor.trim().toIntOrNull() ?: return "Ingresa un monto entero en pesos (0 si no hay peaje)"
         return if (n < 0 || n > 200_000) "Debe estar entre $0 y $200.000" else null
-    }
-
-    fun validarPrecioLitro(valor: String): String? {
-        val n = valor.trim().toIntOrNull() ?: return "Ingresa el precio en pesos por litro"
-        return if (n < 300 || n > 5_000) "Debe estar entre $300 y $5.000 por litro" else null
     }
 }

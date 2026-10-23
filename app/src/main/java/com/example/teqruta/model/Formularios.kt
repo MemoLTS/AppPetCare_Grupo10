@@ -24,7 +24,6 @@ data class UsuarioFormState(
     val rol: Rol? = null,
     val activo: Boolean = true,
     val jefeId: Int? = null,
-    val vehiculoId: Int? = null,
     val errores: Map<String, String> = emptyMap()
 )
 
@@ -35,7 +34,7 @@ data class VehiculoForm(
     val patente: String = "",
     val descripcion: String = "",
     val tipo: TipoVehiculo = TipoVehiculo.EMPRESA,
-    val rendimiento: String = "",
+    val costoPorKm: String = "",
     val activo: Boolean = true,
     val errores: Map<String, String> = emptyMap()
 )
@@ -60,23 +59,21 @@ data class TramoForm(
     val errores: Map<String, String> = emptyMap()
 )
 
-data class TarifaForm(
-    val precioLitro: String = "",
-    val error: String? = null
-)
-
 // ---------- Traslados ----------
 
+// La orden se asocia al vehículo por su patente (se guarda siempre en mayúsculas).
 data class NuevoTrasladoForm(
+    val patente: String = "",
     val origenId: Int? = null,
     val destinoId: Int? = null,
-    val kmInicial: String = "",
     val errores: Map<String, String> = emptyMap()
 )
 
+// Distancia en km (con decimales, obligatoria) y gasto del vehículo en pesos (opcional).
 data class FinalizarTrasladoForm(
-    val kmFinal: String = "",
-    val error: String? = null
+    val distanciaKm: String = "",
+    val gastoClp: String = "",
+    val errores: Map<String, String> = emptyMap()
 )
 
 data class RechazoForm(

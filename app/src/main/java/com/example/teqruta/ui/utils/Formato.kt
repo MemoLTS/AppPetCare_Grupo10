@@ -11,7 +11,16 @@ object Formato {
 
     fun clp(monto: Int): String = "$" + NumberFormat.getIntegerInstance(locale).format(monto)
 
-    fun km(valor: Double): String = String.format(locale, "%.1f km", valor)
+    // Kilómetros con sus decimales (hasta 2): 112,0 km · 12,35 km
+    fun km(valor: Double): String {
+        val formato = NumberFormat.getNumberInstance(locale)
+        formato.minimumFractionDigits = 1
+        formato.maximumFractionDigits = 2
+        return formato.format(valor) + " km"
+    }
+
+    // Costo por kilómetro: $130,0/km
+    fun clpPorKm(valor: Double): String = "$" + String.format(locale, "%.1f", valor) + "/km"
 
     fun porcentaje(valor: Double): String = String.format(locale, "%+.1f %%", valor)
 

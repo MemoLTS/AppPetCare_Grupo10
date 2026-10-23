@@ -14,8 +14,9 @@ data class Vehiculo(
     val patente: String,
     val descripcion: String,
     val tipo: TipoVehiculo,
-    // Rendimiento en km por litro, base para calcular el combustible consumido
-    val rendimientoKmPorLitro: Double,
+    // Costo del vehículo por kilómetro recorrido (CLP/km, admite decimales). Es la base del costo
+    // de cada traslado: distancia oficial del tramo × costo por km.
+    val costoPorKmClp: Double,
     val activo: Boolean = true
 )
 
@@ -46,14 +47,3 @@ data class Tramo(
     fun conecta(a: Int, b: Int): Boolean =
         (origenId == a && destinoId == b) || (origenId == b && destinoId == a)
 }
-
-// Precio del combustible por litro. La tarifa vigente es la más reciente; las anteriores se
-// conservan como historial para poder auditar con qué precio se calculó cada traslado.
-data class TarifaCombustible(
-    val id: Int,
-    val precioLitroClp: Int,
-    val vigenteDesdeMs: Long,
-    // De dónde salió el valor (fuente pública de precios o ingreso manual del administrador)
-    val fuente: String,
-    val registradaPorId: Int?
-)

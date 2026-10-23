@@ -185,17 +185,22 @@ private fun TarjetaTraslado(
                 )
             }
             Text(
-                text = "Vehículo: ${datos.vehiculosPorId[traslado.vehiculoId]?.patente ?: "Desconocido"}",
+                text = "Vehículo: ${traslado.patente}" +
+                    (datos.vehiculosPorPatente[traslado.patente]?.let { " · ${it.descripcion}" } ?: ""),
                 style = MaterialTheme.typography.bodySmall
             )
-            Text(
-                text = if (traslado.kmFinal != null) {
-                    "Odómetro: ${traslado.kmInicial} → ${traslado.kmFinal} km (${traslado.kmDeclarados} km declarados)"
-                } else {
-                    "Odómetro inicial: ${traslado.kmInicial} km"
-                },
-                style = MaterialTheme.typography.bodySmall
-            )
+            if (traslado.distanciaKm != null) {
+                Text(
+                    text = "Distancia declarada: ${Formato.km(traslado.distanciaKm)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            if (traslado.gastoVehiculoClp != null) {
+                Text(
+                    text = "Gasto del vehículo declarado: ${Formato.clp(traslado.gastoVehiculoClp)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
             if (mostrarCostos && calculo != null) {
                 Text(
@@ -204,8 +209,8 @@ private fun TarjetaTraslado(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = "Combustible ${Formato.clp(calculo.costoCombustibleClp)} " +
-                        "(${Formato.clp(calculo.precioLitroClp)}/L) + peajes ${Formato.clp(calculo.peajeClp)}",
+                    text = "Distancia ${Formato.clp(calculo.costoDistanciaClp)} " +
+                        "(${Formato.clpPorKm(calculo.costoPorKmClp)}) + peajes ${Formato.clp(calculo.peajeClp)}",
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (calculo.hayDesviacion) {

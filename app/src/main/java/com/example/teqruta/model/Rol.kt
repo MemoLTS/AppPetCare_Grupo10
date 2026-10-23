@@ -10,7 +10,7 @@ enum class Permiso {
     VALIDAR_TRASLADOS,
     VER_COSTOS_DETALLE,   // ver el costo de cada traslado
     VER_REPORTES,         // ver el costo consolidado por cliente, técnico y vehículo
-    GESTIONAR_CATALOGOS,  // vehículos, ubicaciones, tramos y tarifa
+    GESTIONAR_CATALOGOS,  // vehículos, ubicaciones, tramos
     GESTIONAR_USUARIOS
 }
 
@@ -41,7 +41,7 @@ enum class Rol(
     ),
     ADMINISTRADOR(
         etiqueta = "Administrador del sistema",
-        descripcion = "Mantiene vehículos, ubicaciones, tramos, tarifas y usuarios",
+        descripcion = "Mantiene vehículos, ubicaciones, tramos y usuarios",
         permisos = setOf(Permiso.GESTIONAR_CATALOGOS, Permiso.GESTIONAR_USUARIOS)
     )
 }

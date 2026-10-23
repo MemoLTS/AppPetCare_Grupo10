@@ -8,12 +8,12 @@ import com.example.teqruta.model.FinalizarTrasladoForm
 import com.example.teqruta.model.NuevoTrasladoForm
 import com.example.teqruta.model.PoliticaAcceso
 import com.example.teqruta.model.RechazoForm
-import com.example.teqruta.model.TarifaCombustible
 import com.example.teqruta.model.TipoUbicacion
 import com.example.teqruta.model.Tramo
 import com.example.teqruta.model.Traslado
 import com.example.teqruta.model.Ubicacion
 import com.example.teqruta.model.Usuario
+import com.example.teqruta.model.ValidadorCatalogo
 import com.example.teqruta.model.ValidadorTraslado
 import com.example.teqruta.model.Vehiculo
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,7 +33,8 @@ data class DatosTraslados(
     val tramos: List<Tramo>
 ) {
     val usuariosPorId: Map<Int, Usuario> = usuarios.associateBy { it.id }
-    val vehiculosPorId: Map<Int, Vehiculo> = vehiculos.associateBy { it.id }
+    // El vehículo de un traslado se busca por su patente
+    val vehiculosPorPatente: Map<String, Vehiculo> = vehiculos.associateBy { it.patente }
     val ubicacionesPorId: Map<Int, Ubicacion> = ubicaciones.associateBy { it.id }
 }
 
@@ -56,8 +57,6 @@ class TrasladoViewModel(
         DatosTraslados(traslados, usuarios, vehiculos, ubicaciones, tramos)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, armarDatos())
 
-    val tarifaVigente: TarifaCombustible? get() = repo.tarifaVigente()
-
     // Tramo oficial entre dos ubicaciones (null si el administrador aún no lo registró)
     fun tramoOficial(origenId: Int?, destinoId: Int?): Tramo? =
         if (origenId == null || destinoId == null || origenId == destinoId) null
@@ -70,16 +69,22 @@ class TrasladoViewModel(
 
     fun trasladoEnCurso(actor: Usuario): Traslado? = repo.trasladoEnCurso(actor.id)
 
-    // Deja el formulario listo para un traslado nuevo, proponiendo el origen (el último destino
-    // del técnico, o la sede) y el kilometraje (el último conocido del vehículo) para agilizar el registro.
+    // Deja el formulario listo para una orden nueva, proponiendo la patente (la última que usó el
+    // técnico) y el origen (su último destino, o la sede) para agilizar el registro.
     fun prepararNuevo(actor: Usuario) {
-        val kmSugerido = actor.vehiculoId?.let { repo.ultimoKmDeVehiculo(it) }
         val origenSugerido = repo.ultimoDestinoDe(actor.id)
             ?: repo.ubicaciones.value.firstOrNull { it.tipo == TipoUbicacion.SEDE && it.activa }?.id
         _nuevo.value = NuevoTrasladoForm(
-            origenId = origenSugerido,
-            kmInicial = kmSugerido?.toString() ?: ""
+            patente = repo.ultimaPatenteDe(actor.id) ?: "",
+            origenId = origenSugerido
         )
+    }
+
+    // La patente se convierte a mayúsculas (y se limpia de espacios y guiones) al escribirla.
+    fun onPatenteChange(valor: String) {
+        _nuevo.update {
+            it.copy(patente = ValidadorCatalogo.patenteDeEntrada(valor), errores = it.errores - "patente" - "general")
+        }
     }
 
     fun onOrigenChange(id: Int) {
@@ -90,11 +95,8 @@ class TrasladoViewModel(
         _nuevo.update { it.copy(destinoId = id, errores = it.errores - "destino") }
     }
 
-    fun onKmInicialChange(valor: String) {
-        _nuevo.update { it.copy(kmInicial = valor, errores = it.errores - "km") }
-    }
-
-    // Valida el formulario y registra el inicio del traslado. Retorna true si quedó en curso.
+    // Valida el formulario y registra la orden asociada al vehículo por su patente.
+    // Retorna true si quedó en curso.
     fun iniciarTraslado(actor: Usuario): Boolean {
         if (!PoliticaAcceso.puedeRegistrarTraslados(actor)) return false
         val f = _nuevo.value
@@ -103,12 +105,18 @@ class TrasladoViewModel(
         if (repo.trasladoEnCurso(actor.id) != null) {
             errores["general"] = "Ya tienes un traslado en curso. Finalízalo antes de iniciar otro."
         }
-        val vehiculo = actor.vehiculoId?.let { id ->
-            repo.vehiculos.value.firstOrNull { it.id == id && it.activo }
-        }
-        if (vehiculo == null) {
-            errores["general"] = "No tienes un vehículo activo asignado. Contacta al administrador."
-        }
+
+        // El vehículo se identifica por la patente y debe estar registrado y activo
+        val patente = ValidadorCatalogo.normalizarPatente(f.patente)
+        val vehiculo = repo.vehiculoPorPatente(patente)
+        val errorPatente = ValidadorCatalogo.validarPatente(f.patente)
+            ?: when {
+                vehiculo == null ->
+                    "No hay un vehículo registrado con esta patente. Pide al administrador que lo registre."
+                !vehiculo.activo -> "El vehículo con esta patente está desactivado."
+                else -> null
+            }
+        if (errorPatente != null) errores["patente"] = errorPatente
 
         val origen = repo.ubicaciones.value.firstOrNull { it.id == f.origenId && it.activa }
         val destino = repo.ubicaciones.value.firstOrNull { it.id == f.destinoId && it.activa }
@@ -122,19 +130,15 @@ class TrasladoViewModel(
             }
         }
 
-        val minimoOdometro = vehiculo?.let { repo.ultimoKmDeVehiculo(it.id) }
-        ValidadorTraslado.validarKmInicial(f.kmInicial, minimoOdometro)?.let { errores["km"] = it }
-
         if (errores.isNotEmpty() || vehiculo == null || origen == null || destino == null) {
             _nuevo.update { it.copy(errores = errores) }
             return false
         }
         repo.iniciarTraslado(
             tecnicoId = actor.id,
-            vehiculoId = vehiculo.id,
+            patente = vehiculo.patente,
             origenId = origen.id,
             destinoId = destino.id,
-            kmInicial = f.kmInicial.trim().toInt(),
             ahoraMs = reloj()
         )
         _nuevo.value = NuevoTrasladoForm()
@@ -150,25 +154,40 @@ class TrasladoViewModel(
         _finalizar.value = FinalizarTrasladoForm()
     }
 
-    fun onKmFinalChange(valor: String) {
-        _finalizar.update { it.copy(kmFinal = valor, error = null) }
+    fun onDistanciaChange(valor: String) {
+        _finalizar.update { it.copy(distanciaKm = valor, errores = it.errores - "distancia" - "general") }
     }
 
-    // Cierra el traslado en curso del técnico y calcula su costo. Retorna true si quedó pendiente de validación.
+    fun onGastoChange(valor: String) {
+        _finalizar.update { it.copy(gastoClp = valor, errores = it.errores - "gasto") }
+    }
+
+    // Cierra el traslado en curso del técnico y calcula su costo. La distancia (km, con decimales)
+    // es obligatoria; el gasto del vehículo en pesos es opcional.
+    // Retorna true si quedó pendiente de validación.
     fun finalizarTraslado(actor: Usuario): Boolean {
         val enCurso = repo.trasladoEnCurso(actor.id) ?: return false
         if (!PoliticaAcceso.puedeFinalizarTraslado(actor, enCurso)) return false
 
         val f = _finalizar.value
-        val error = ValidadorTraslado.validarKmFinal(f.kmFinal, enCurso.kmInicial)
-        if (error != null) {
-            _finalizar.update { it.copy(error = error) }
+        val errores = buildMap<String, String> {
+            ValidadorTraslado.validarDistancia(f.distanciaKm)?.let { put("distancia", it) }
+            ValidadorTraslado.validarGasto(f.gastoClp)?.let { put("gasto", it) }
+        }
+        if (errores.isNotEmpty()) {
+            _finalizar.update { it.copy(errores = errores) }
             return false
         }
-        val resultado = repo.finalizarTraslado(enCurso.id, f.kmFinal.trim().toInt(), reloj())
+        val gasto = if (f.gastoClp.isBlank()) null else ValidadorTraslado.parsearGasto(f.gastoClp)
+        val resultado = repo.finalizarTraslado(
+            id = enCurso.id,
+            distanciaKm = ValidadorTraslado.parsearDistancia(f.distanciaKm)!!,
+            gastoVehiculoClp = gasto,
+            ahoraMs = reloj()
+        )
         if (resultado == null) {
             _finalizar.update {
-                it.copy(error = "No se pudo calcular el costo: falta la tarifa o el tramo oficial. Avisa al administrador.")
+                it.copy(errores = mapOf("general" to "No se pudo calcular el costo: falta el tramo oficial o el vehículo. Avisa al administrador."))
             }
             return false
         }

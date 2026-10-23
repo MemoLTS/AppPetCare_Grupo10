@@ -19,16 +19,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.example.teqruta.model.Usuario
+import com.example.teqruta.model.ValidadorCatalogo
 import com.example.teqruta.ui.components.CampoFormulario
 import com.example.teqruta.ui.components.SelectorDesplegable
 import com.example.teqruta.viewmodel.DatosTraslados
 import com.example.teqruta.viewmodel.TrasladoViewModel
 
-// Registro rápido del inicio de un traslado: origen, destino y kilometraje del odómetro.
-// El vehículo es el que el técnico tiene asignado; la hora de inicio la toma la app.
+// Registro rápido de una orden de traslado: patente del vehículo, origen y destino.
+// El vehículo (registrado aparte por el administrador) se asocia por su patente;
+// la hora de inicio la toma la app. Los kilómetros y el gasto se declaran al finalizar.
 @Composable
 fun TrasladoNuevoScreen(
     viewModel: TrasladoViewModel,
@@ -38,7 +40,8 @@ fun TrasladoNuevoScreen(
     modifier: Modifier = Modifier
 ) {
     val estado by viewModel.nuevo.collectAsState()
-    val vehiculo = usuario.vehiculoId?.let { datos.vehiculosPorId[it] }
+    val patente = ValidadorCatalogo.normalizarPatente(estado.patente)
+    val vehiculo = datos.vehiculosPorPatente[patente]
     val ubicaciones = datos.ubicaciones.filter { it.activa }
     val origen = datos.ubicacionesPorId[estado.origenId]
     val destino = datos.ubicacionesPorId[estado.destinoId]
@@ -59,17 +62,29 @@ fun TrasladoNuevoScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Vehículo asignado", style = MaterialTheme.typography.labelLarge)
-                if (vehiculo != null) {
-                    Text("${vehiculo.patente} · ${vehiculo.descripcion}", style = MaterialTheme.typography.bodyLarge)
-                    Text(vehiculo.tipo.etiqueta, style = MaterialTheme.typography.bodySmall)
-                } else {
+        CampoFormulario(
+            valor = estado.patente,
+            onValorChange = viewModel::onPatenteChange,
+            etiqueta = "Patente del vehículo",
+            iconoInicial = Icons.Default.Info,
+            error = estado.errores["patente"],
+            capitalizacion = KeyboardCapitalization.Characters
+        )
+
+        // Confirma qué vehículo registrado corresponde a la patente escrita
+        if (vehiculo != null && estado.errores["patente"] == null) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Vehículo registrado", style = MaterialTheme.typography.labelLarge)
                     Text(
-                        "No tienes un vehículo asignado. Contacta al administrador.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+                        "${vehiculo.patente} · ${vehiculo.descripcion}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        if (vehiculo.activo) vehiculo.tipo.etiqueta else "${vehiculo.tipo.etiqueta} · Desactivado",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (vehiculo.activo) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -102,15 +117,6 @@ fun TrasladoNuevoScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
-        CampoFormulario(
-            valor = estado.kmInicial,
-            onValorChange = viewModel::onKmInicialChange,
-            etiqueta = "Kilometraje inicial (odómetro)",
-            iconoInicial = Icons.Default.Info,
-            error = estado.errores["km"],
-            tipoTeclado = KeyboardType.Number
-        )
 
         if (estado.errores["general"] != null) {
             Text(

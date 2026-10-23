@@ -14,7 +14,7 @@ sealed class Screen(val route: String) {
     data object Traslados : Screen("traslados_page")
     // Gerencia / Finanzas: costo por cliente, técnico y vehículo
     data object Reportes : Screen("reportes_page")
-    // Administrador: vehículos, ubicaciones, tramos y tarifa
+    // Administrador: vehículos, ubicaciones y tramos
     data object Catalogos : Screen("catalogos_page")
     // Administrador: usuarios
     data object Usuarios : Screen("usuarios_page")

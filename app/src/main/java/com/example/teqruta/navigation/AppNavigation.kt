@@ -166,17 +166,13 @@ fun AppNavigation(
                     acciones += AccionHome("Ver traslados", false) { mainViewModel.navigateTo(Screen.Traslados) }
                 }
                 Rol.ADMINISTRADOR -> {
-                    val vigente = trasladoViewModel.tarifaVigente
-                    if (vigente == null || vigente.vigenteDesdeMs == 0L) {
-                        avisos += "La tarifa de combustible es un valor de ejemplo. Registra la tarifa vigente."
-                    }
                     datosHome += DatoHome(
                         datos.vehiculos.count { it.activo }.toString(), "vehículos activos"
                     )
                     datosHome += DatoHome(
                         datos.usuarios.count { it.activo }.toString(), "usuarios activos"
                     )
-                    acciones += AccionHome("Catálogos y tarifas", true) { mainViewModel.navigateTo(Screen.Catalogos) }
+                    acciones += AccionHome("Catálogos", true) { mainViewModel.navigateTo(Screen.Catalogos) }
                     acciones += AccionHome("Usuarios", false) { mainViewModel.navigateTo(Screen.Usuarios) }
                 }
             }
@@ -263,7 +259,7 @@ fun AppNavigation(
 
         composable(Screen.Catalogos.route) {
             val usuario = usuarioActual ?: return@composable
-            Pantalla(titulo = "Catálogos y tarifas", usuario = usuario) { padding ->
+            Pantalla(titulo = "Catálogos", usuario = usuario) { padding ->
                 if (PoliticaAcceso.puedeGestionarCatalogos(usuario)) {
                     CatalogosScreen(
                         viewModel = catalogoViewModel,

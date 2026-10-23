@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.teqruta.model.TipoUbicacion
@@ -44,10 +45,10 @@ import com.example.teqruta.ui.components.SelectorDesplegable
 import com.example.teqruta.ui.utils.Formato
 import com.example.teqruta.viewmodel.CatalogoViewModel
 
-private val PESTANAS = listOf("Vehículos", "Ubicaciones", "Tramos", "Tarifa")
+private val PESTANAS = listOf("Vehículos", "Ubicaciones", "Tramos")
 
-// Apartado del administrador: mantiene vehículos, ubicaciones (sede y clientes), tramos con su
-// distancia y peaje, y la tarifa de combustible. Los registros no se borran: se desactivan.
+// Apartado del administrador: mantiene vehículos (con su patente y costo por km), ubicaciones
+// (sede y clientes) y tramos con su distancia y peaje. Los registros no se borran: se desactivan.
 @Composable
 fun CatalogosScreen(
     viewModel: CatalogoViewModel,
@@ -69,8 +70,7 @@ fun CatalogosScreen(
         when (pestana) {
             0 -> PestanaVehiculos(viewModel, actor)
             1 -> PestanaUbicaciones(viewModel, actor)
-            2 -> PestanaTramos(viewModel, actor)
-            else -> PestanaTarifa(viewModel, actor)
+            else -> PestanaTramos(viewModel, actor)
         }
     }
 }
@@ -164,7 +164,7 @@ private fun PestanaVehiculos(viewModel: CatalogoViewModel, actor: Usuario) {
     ) { v ->
         TarjetaCatalogo(
             titulo = "${v.patente} · ${v.descripcion}",
-            detalle = "${v.tipo.etiqueta} · ${String.format(java.util.Locale("es", "CL"), "%.1f", v.rendimientoKmPorLitro)} km/L",
+            detalle = "${v.tipo.etiqueta} · ${Formato.clpPorKm(v.costoPorKmClp)}",
             desactivado = !v.activo,
             onEditar = { viewModel.editarVehiculo(actor, v.id) }
         )
@@ -178,10 +178,11 @@ private fun PestanaVehiculos(viewModel: CatalogoViewModel, actor: Usuario) {
         ) {
             CampoFormulario(
                 valor = f.patente,
-                onValorChange = { valor -> viewModel.cambiarVehiculo("patente") { it.copy(patente = valor) } },
+                onValorChange = viewModel::onPatenteVehiculoChange,
                 etiqueta = "Patente",
                 iconoInicial = Icons.Default.Info,
-                error = f.errores["patente"]
+                error = f.errores["patente"],
+                capitalizacion = KeyboardCapitalization.Characters
             )
             CampoFormulario(
                 valor = f.descripcion,
@@ -199,11 +200,11 @@ private fun PestanaVehiculos(viewModel: CatalogoViewModel, actor: Usuario) {
                 error = null
             )
             CampoFormulario(
-                valor = f.rendimiento,
-                onValorChange = { valor -> viewModel.cambiarVehiculo("rendimiento") { it.copy(rendimiento = valor) } },
-                etiqueta = "Rendimiento (km por litro)",
+                valor = f.costoPorKm,
+                onValorChange = { valor -> viewModel.cambiarVehiculo("costoPorKm") { it.copy(costoPorKm = valor) } },
+                etiqueta = "Costo por kilómetro (CLP/km)",
                 iconoInicial = Icons.Default.Info,
-                error = f.errores["rendimiento"],
+                error = f.errores["costoPorKm"],
                 tipoTeclado = KeyboardType.Decimal
             )
             if (f.id != 0) {
@@ -352,79 +353,6 @@ private fun PestanaTramos(viewModel: CatalogoViewModel, actor: Usuario) {
                     error = null
                 )
             }
-        }
-    }
-}
-
-// ---------- Tarifa de combustible ----------
-
-@Composable
-private fun PestanaTarifa(viewModel: CatalogoViewModel, actor: Usuario) {
-    val tarifas by viewModel.tarifas.collectAsState()
-    val usuarios by viewModel.usuarios.collectAsState()
-    val form by viewModel.tarifaForm.collectAsState()
-    val ordenadas = tarifas.sortedWith(compareByDescending<com.example.teqruta.model.TarifaCombustible> { it.vigenteDesdeMs }.thenByDescending { it.id })
-    val nombres = usuarios.associate { it.id to it.nombre }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Button(
-            onClick = { viewModel.nuevaTarifa(actor) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Text("Registrar nueva tarifa", modifier = Modifier.padding(start = 8.dp))
-        }
-        Text(
-            text = "La tarifa vigente es la más reciente. Las anteriores se conservan para poder auditar " +
-                "con qué precio se calculó cada traslado.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
-        )
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(ordenadas, key = { it.id }) { t ->
-                val vigente = t.id == ordenadas.first().id
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "${Formato.clp(t.precioLitroClp)} por litro" + if (vigente) " · Vigente" else "",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = if (vigente) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
-                        )
-                        if (t.vigenteDesdeMs > 0) {
-                            Text("Desde: ${Formato.fechaHora(t.vigenteDesdeMs)}", style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text("Fuente: ${t.fuente}", style = MaterialTheme.typography.bodySmall)
-                        t.registradaPorId?.let {
-                            Text("Registrada por: ${nombres[it] ?: "Desconocido"}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    form?.let { f ->
-        DialogoFormulario(
-            titulo = "Nueva tarifa de combustible",
-            onGuardar = { viewModel.guardarTarifa(actor) },
-            onCancelar = viewModel::cerrarTarifa
-        ) {
-            CampoFormulario(
-                valor = f.precioLitro,
-                onValorChange = viewModel::onPrecioLitroChange,
-                etiqueta = "Precio por litro (CLP)",
-                iconoInicial = Icons.Default.Info,
-                error = f.error,
-                tipoTeclado = KeyboardType.Number
-            )
         }
     }
 }

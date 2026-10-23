@@ -38,9 +38,7 @@ fun UsuariosScreen(
     modifier: Modifier = Modifier
 ) {
     val usuarios by viewModel.usuarios.collectAsState()
-    val vehiculos by viewModel.vehiculos.collectAsState()
     val usuariosPorId = usuarios.associateBy { it.id }
-    val vehiculosPorId = vehiculos.associateBy { it.id }
 
     Column(modifier = modifier.fillMaxSize()) {
         Button(
@@ -62,7 +60,6 @@ fun UsuariosScreen(
                     usuario = usuario,
                     esUnoMismo = usuario.id == actor.id,
                     nombreJefe = usuario.jefeId?.let { usuariosPorId[it]?.nombre },
-                    patente = usuario.vehiculoId?.let { vehiculosPorId[it]?.patente },
                     onEditar = { onEditar(usuario.id) }
                 )
             }
@@ -75,7 +72,6 @@ private fun TarjetaUsuario(
     usuario: Usuario,
     esUnoMismo: Boolean,
     nombreJefe: String?,
-    patente: String?,
     onEditar: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -95,7 +91,7 @@ private fun TarjetaUsuario(
                 Text(usuario.rol.etiqueta, style = MaterialTheme.typography.bodySmall)
                 if (usuario.rol == Rol.TECNICO) {
                     Text(
-                        text = "Jefe: ${nombreJefe ?: "sin asignar"} · Vehículo: ${patente ?: "sin asignar"}",
+                        text = "Jefe: ${nombreJefe ?: "sin asignar"}",
                         style = MaterialTheme.typography.bodySmall
                     )
                 }

@@ -8,16 +8,15 @@ enum class EstadoTraslado(val etiqueta: String) {
 }
 
 // Registro auditable del cálculo de costo de un traslado: guarda los datos de entrada
-// (tarifa, distancia, rendimiento, peaje) y los resultados, para poder reconstruir y verificar
-// cómo se obtuvo el monto aunque después cambien las tarifas.
+// (distancia oficial, costo por km del vehículo, peaje) y los resultados, para poder reconstruir
+// y verificar cómo se obtuvo el monto aunque después cambien el tramo o el costo por km.
 data class CalculoCosto(
-    val tarifaId: Int,
-    val precioLitroClp: Int,
     val distanciaOficialKm: Double,
-    val distanciaDeclaradaKm: Int,
-    val rendimientoKmPorLitro: Double,
-    val litros: Double,
-    val costoCombustibleClp: Int,
+    // Distancia (km, con decimales) que declaró el técnico al finalizar
+    val distanciaDeclaradaKm: Double,
+    val costoPorKmClp: Double,
+    // distancia oficial × costo por km
+    val costoDistanciaClp: Int,
     val peajeClp: Int,
     val costoTotalClp: Int,
     // (declarada - oficial) / oficial. Positivo = el técnico declaró más km que el trayecto oficial
@@ -26,24 +25,25 @@ data class CalculoCosto(
     val calculadoMs: Long
 )
 
-// Un traslado es un tramo recorrido por un técnico (por ejemplo sede → clínica).
-// kmInicial y kmFinal son las lecturas del odómetro que declara el técnico.
+// Un traslado es una orden de un tramo recorrido por un técnico (por ejemplo sede → clínica).
+// El vehículo se asocia por su patente (los vehículos se registran aparte).
+// distanciaKm es la distancia declarada por el técnico (con decimales) y gastoVehiculoClp es el
+// gasto del vehículo en pesos, opcional.
 data class Traslado(
     val id: Int,
     val tecnicoId: Int,
-    val vehiculoId: Int,
+    val patente: String,
     val origenId: Int,
     val destinoId: Int,
     val inicioMs: Long,
     val finMs: Long? = null,
-    val kmInicial: Int,
-    val kmFinal: Int? = null,
+    val distanciaKm: Double? = null,
+    val gastoVehiculoClp: Int? = null,
     val estado: EstadoTraslado = EstadoTraslado.EN_CURSO,
     val calculo: CalculoCosto? = null,
     val validadoPorId: Int? = null,
     val resueltoMs: Long? = null,
     val motivoRechazo: String? = null
 ) {
-    val kmDeclarados: Int? get() = kmFinal?.let { it - kmInicial }
     val hayDesviacion: Boolean get() = calculo?.hayDesviacion == true
 }

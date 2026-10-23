@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,6 +26,7 @@ fun CampoFormulario(
     error: String?,
     modifier: Modifier = Modifier,
     tipoTeclado: KeyboardType = KeyboardType.Text,
+    capitalizacion: KeyboardCapitalization = KeyboardCapitalization.None,
     transformacion: VisualTransformation = VisualTransformation.None
 ) {
     OutlinedTextField(
@@ -44,7 +46,7 @@ fun CampoFormulario(
         isError = error != null,
         supportingText = { if (error != null) Text(error) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = tipoTeclado),
+        keyboardOptions = KeyboardOptions(keyboardType = tipoTeclado, capitalization = capitalizacion),
         visualTransformation = transformacion,
         modifier = modifier.fillMaxWidth()
     )

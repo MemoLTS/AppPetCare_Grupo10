@@ -1,3 +1,4 @@
+
 package com.example.teqruta.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -29,22 +30,31 @@ import com.example.teqruta.ui.components.MensajeCentrado
 import com.example.teqruta.ui.utils.Formato
 import com.example.teqruta.viewmodel.DatosTraslados
 
-// Costo real de movilización por cliente, técnico o vehículo (solo lectura).
-// Cuenta únicamente traslados validados por el jefe de servicio.
 @Composable
 fun ReportesScreen(
     datos: DatosTraslados,
     modifier: Modifier = Modifier
 ) {
-    var dimension by rememberSaveable { mutableStateOf(DimensionReporte.CLIENTE) }
+    var dimension by rememberSaveable {
+        mutableStateOf(DimensionReporte.CLIENTE)
+    }
 
     val filas = remember(datos, dimension) {
-        ReporteCostos.resumir(datos.traslados, dimension, datos.usuarios, datos.vehiculos, datos.ubicaciones)
+        ReporteCostos.resumir(
+            datos.traslados,
+            dimension,
+            datos.usuarios,
+            datos.vehiculos,
+            datos.ubicaciones
+        )
     }
+
     val total = filas.sumOf { it.costoTotalClp }
     val validados = filas.sumOf { it.traslados }
     val conDesviacion = filas.sumOf { it.conDesviacion }
-    val pendientes = datos.traslados.count { it.estado == EstadoTraslado.PENDIENTE_VALIDACION }
+    val pendientes = datos.traslados.count {
+        it.estado == EstadoTraslado.PENDIENTE_VALIDACION
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         Row(
@@ -57,7 +67,9 @@ fun ReportesScreen(
                 FilterChip(
                     selected = dimension == opcion,
                     onClick = { dimension = opcion },
-                    label = { Text("Por ${opcion.etiqueta.lowercase()}") }
+                    label = {
+                        Text("Por ${opcion.etiqueta.lowercase()}")
+                    }
                 )
             }
         }
@@ -68,16 +80,22 @@ fun ReportesScreen(
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Costo total validado", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    "Costo total validado",
+                    style = MaterialTheme.typography.labelLarge
+                )
+
                 Text(
                     text = Formato.clp(total),
                     style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.tertiary
                 )
+
                 Text(
                     text = "$validados traslados validados · $conDesviacion con desviación",
                     style = MaterialTheme.typography.bodySmall
                 )
+
                 if (pendientes > 0) {
                     Text(
                         text = "$pendientes traslados aún por validar (no incluidos)",
@@ -99,7 +117,9 @@ fun ReportesScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(filas, key = { it.etiqueta }) { fila -> TarjetaFila(fila) }
+                items(filas, key = { it.etiqueta }) { fila ->
+                    TarjetaFila(fila)
+                }
             }
         }
     }
@@ -114,11 +134,24 @@ private fun TarjetaFila(fila: FilaResumen) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-            Text(Formato.clp(fila.costoTotalClp), style = MaterialTheme.typography.titleLarge)
+
+            Text(
+                Formato.clp(fila.costoTotalClp),
+                style = MaterialTheme.typography.titleLarge
+            )
+
             Text(
                 text = "${fila.traslados} traslados · ${Formato.km(fila.kmOficiales)} oficiales",
                 style = MaterialTheme.typography.bodySmall
             )
+
+            if (fila.gastoDeclaradoClp > 0) {
+                Text(
+                    text = "Gasto del vehículo declarado: ${Formato.clp(fila.gastoDeclaradoClp)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
             if (fila.conDesviacion > 0) {
                 Text(
                     text = "${fila.conDesviacion} con desviación",

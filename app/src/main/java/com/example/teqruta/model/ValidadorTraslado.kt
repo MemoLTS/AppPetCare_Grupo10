@@ -3,28 +3,29 @@ package com.example.teqruta.model
 // Validaciones del registro de traslados (funciones puras, sin UI).
 object ValidadorTraslado {
 
-    const val MAX_KM_POR_TRASLADO = 2_000
-    private const val MAX_ODOMETRO = 9_999_999
+    const val MAX_KM_POR_TRASLADO = 2_000.0
+    const val MAX_GASTO_CLP = 5_000_000
 
-    // minimoOdometro: último kilometraje conocido del vehículo (el odómetro no puede retroceder)
-    fun validarKmInicial(valor: String, minimoOdometro: Int?): String? {
-        val n = valor.trim().toIntOrNull() ?: return "Ingresa el kilometraje del odómetro (solo números)"
+    // Acepta coma o punto decimal. Retorna null si no es un número válido.
+    fun parsearDistancia(valor: String): Double? = ValidadorCatalogo.parsearDecimal(valor)
+
+    // Los kilómetros son obligatorios y pueden llevar decimales (ej: 112,5)
+    fun validarDistancia(valor: String): String? {
+        val n = parsearDistancia(valor) ?: return "Ingresa los kilómetros recorridos (ej: 112,5)"
         return when {
-            n < 0 || n > MAX_ODOMETRO -> "Kilometraje fuera de rango"
-            minimoOdometro != null && n < minimoOdometro ->
-                "No puede ser menor al último kilometraje registrado del vehículo ($minimoOdometro km)"
+            n <= 0.0 -> "Debe ser mayor a 0 km"
+            n > MAX_KM_POR_TRASLADO -> "Un traslado no puede superar ${MAX_KM_POR_TRASLADO.toInt()} km; revisa el valor"
             else -> null
         }
     }
 
-    fun validarKmFinal(valor: String, kmInicial: Int): String? {
-        val n = valor.trim().toIntOrNull() ?: return "Ingresa el kilometraje del odómetro (solo números)"
-        return when {
-            n <= kmInicial -> "Debe ser mayor al kilometraje inicial ($kmInicial km)"
-            n - kmInicial > MAX_KM_POR_TRASLADO ->
-                "Un traslado no puede superar $MAX_KM_POR_TRASLADO km; revisa el odómetro"
-            else -> null
-        }
+    fun parsearGasto(valor: String): Int? = valor.trim().toIntOrNull()
+
+    // El gasto del vehículo (en pesos) es opcional: vacío es válido
+    fun validarGasto(valor: String): String? {
+        if (valor.isBlank()) return null
+        val n = parsearGasto(valor) ?: return "Ingresa un monto entero en pesos"
+        return if (n < 0 || n > MAX_GASTO_CLP) "Debe estar entre $0 y $5.000.000" else null
     }
 
     fun validarMotivoRechazo(valor: String): String? = when {
